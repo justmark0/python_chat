@@ -1,0 +1,4 @@
+peewee==3.14.1
+pyasn1==0.4.8
+python-dotenv==0.15.0
+rsa==4.7

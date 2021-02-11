@@ -6,5 +6,5 @@ PORT = 4702
 
 def server_start():
     serv = Server(HOST, PORT)
-    print('start')
+    # print("server started")
     serv.start()
