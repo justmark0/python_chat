@@ -19,7 +19,7 @@ class Server:
 
         while True:
             conn, address = self.socket.accept()
-            data = conn.recv(1024).decode('utf-8')
+            data = conn.recv(4096).decode('utf-8')
             if data == "":
                 continue
             else:

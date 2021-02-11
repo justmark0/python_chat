@@ -1,4 +1,4 @@
-from peewee import Model, CharField, SqliteDatabase
+from peewee import Model, CharField, SqliteDatabase, ForeignKeyField
 
 db = SqliteDatabase("db.sqlite3")
 
@@ -24,8 +24,12 @@ class Chat(Model):
         database = db
 
 
-# class Account(Model):
-#     pass
+# class Member(Model):
+#     chat = ForeignKeyField(Chat, backref='Members')
+#     name =
+#
+#     class Meta:
+#         database = db
 #
 #
 # class Message(Model):
