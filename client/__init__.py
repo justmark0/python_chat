@@ -1,36 +1,117 @@
-from data.config import HOST, PORT
-from data.send import *
-from data.models import Chat
+from data.message_encryption import *
+import random
+import re
+
+
+def acc(a):
+    if len(a.split()) != 5:
+        print('Try again. Pattern is following: "#acc *name* *chat_id* *ip* *port*"')
+        return
+    ip = a.split()[3]
+    if not re.fullmatch(r'^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$', ip):
+        print("Wrong ip. Exapmles: 172.0.0.1 or 200.200.200.200")
+        return
+    port = a.split()[3]
+    if port == 'y' or port == "":
+        port = 4702
+    if not re.fullmatch(r'[0-9]{1,5}', port):
+        print("Wrong port. Exapmle: 4702")
+        return
+    chat = Chat.get_or_none(name=a.split()[1])
+    if chat is None:
+        print(f"No chat with chat_id {a.split()[2]}")
+        return
+    me = Member.get_or_none(chat_id=chat.chat_id, name=my_default_name, ip=HOST, port=PORT)
+    if me is not None:
+        if me.is_admin is False:
+            print("I cannot accept users since I am not admin")
+            return
+    members = Member.select().where(Member.chat_id == a.split()[2])
+    member_l = []
+    for mem in members:
+        if mem.approved is True:
+            member_l.append({"ip": mem.ip, "port": mem.port, "name": mem.name, "is_admin": mem.is_admin})
+    Smes(json.dumps(member_l), Chat(name=a.split()[1], chat_id=a.split()[2], ip=ip, port=port),
+         type='join_acc').send_sjoin_acc_mes(chat_name=chat.name)
+
+
+def chat_f(a):
+    chat = Chat.get_or_none(name=a.split()[1])
+    if chat is not None:
+        print(f'You entered chat "{a}".')
+        while True:
+            a = input()
+            if a == "exit()":
+                break
+            if a == "":
+                continue
+            if a.split(":")[0] == 'ne':  # Not encrypted message
+                send_mes(chat, a)
+            Smes(a, chat).send_smes()
+    else:
+        print("Couldn't find this chat")
+    return 'a'
+
+
+def new_f(a):
+    name = input("Write name of the chat that you and members will see in the list of the chats\n")
+    chat = Chat.get_or_none(name=name)
+    if chat is not None:
+        print('Pick another name. You have it already')
+    if name == '#new' or name == '#join' or name == '#acc' or name == 'chat':
+        print('Pick another name for chat')
+        return
+    chat_id = hex(random.randint(1, 10 ** 10))
+    chat = Chat.create(name=name, chat_id=chat_id, ip=HOST, port=PORT)
+    Member(chat=chat, ip=HOST, port=PORT, name=my_default_name, is_admin=True).save()
+    print(f"You have created the chat. Other users can join by chat_id:{chat_id}")
+
+
+def join_f(a):
+    chat_id = input("Write chat_id\n")
+    while True:
+        ip = input("Write ip of server\n")
+        if not re.fullmatch(r'^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$', ip):
+            print("Wrong ip. Exapmles: 172.0.0.1 or 200.200.200.200")
+            return
+        port = input('Write port of server. (or "y" to use default)')
+        if port == 'y' or port == "":
+            port = 4702
+        if not re.fullmatch(r'[0-9]{1,5}', port):
+            print("Wrong port. Exapmle: 4702")
+            return
+        Smes(chat_id, Chat(name=my_default_name, chat_id='None', ip=ip, port=port),
+             type='sjoin').send_sdef_mes()
 
 
 def client_start():
-    Chat.get_or_create(name='1', chat_id='randomsymbols1', ip=HOST, port=PORT)
+    Chat.get_or_create(name='1', chat_id='randomsymbols1', ip=HOST, port=PORT)  # for testing
 
     while True:
-        print('Main menu.\nWrite: "chat *name of chat*" to enter to the existing one. Or create new one by typing '
-              '"#new *ip* *port*".To exit from chat type: "exit()". To send message without encryption write with '
-              'message: "ne:*message*"\nList of available chats:')
+        print(
+            'Main menu.\nWrite: "chat *name of chat*" to enter to the existing one. \n You can create new one by typing '
+            '"#new". Or you can join by typing "#join"To exit from chat type: "exit()". To send message without encryption write with '
+            'message: "ne:*message*"\nList of available chats:')
         chats = Chat.select()
         for c in chats:
             print(f"Name:{c.name}; ip:{c.ip}; port:{c.port}; chat_id{c.chat_id};")
 
-        #a = input()
-        a = 'chat 1'  # for testing
+        a = input()
+        # a = 'chat 1'  # for testing
         if a.split()[0] == "chat":
-            chat = Chat.get_or_none(name=a.split()[1])
-            if chat is not None:
-                print(f'You entered chat "{a}".')
-                while True:
-                    a = input()
-                    if a == "exit()":
-                        break
-                    if a.split(":")[0] == 'ne':  # Not encrypted message
-                        send_mes(chat, a)
-                    ssend(chat, a)
-            else:
-                print("Couldn't find this chat")
-        elif a.split()[0] == 'new':
-            pass  # TODO add chat creation
-        # TODO add my name to new chat
+            chat_f(a)
+        elif a.split()[0] == '#new':
+            new_f(a)
+            # TODO make invitations
+        elif a.split()[0] == '#join':
+            join_f(a)
+        elif a.split()[0] == '#acc':
+            acc(a)
         else:
             print("Couldn't understand your command")
+
+# TODO add new admin
+# TODO add remove admin
+# TODO ban *time*
+# TODO get history
+# TODO describe problem and solution for chat_is changes and history loses

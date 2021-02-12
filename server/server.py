@@ -28,7 +28,6 @@ class Server:
 
 
 # TODO систему поддержания соединений (если один отключился, то через время его спросить, если нет ответа отсоеденить)
-# TODO Encryption
 # TODO registration
 # TODO decentralization
 # TODO Add logging
