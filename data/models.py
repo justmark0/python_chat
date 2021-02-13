@@ -19,6 +19,7 @@ class Chat(Model):
     chat_id = CharField(max_length=512)
     ip = CharField(max_length=15)
     port = CharField(max_length=5)
+    chat_id_changeable = BooleanField(default=False)
 
     class Meta:
         database = db

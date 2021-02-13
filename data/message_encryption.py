@@ -53,6 +53,14 @@ class Smes:  # Secure message
             data['chat_id'] = self.chat.chat_id
             send(self.addr, json.dumps(data))
 
+    def send_smes_to_all(self):
+        members = Member.select().where(Member.chat == self.chat)
+        for mem in members:
+            # if mem.ip == '0.0.0.0':
+            #     continue
+            Smes(self.mes, Chat(name=self.chat.name, chat_id=self.chat.chat_id, ip=mem.ip, port=mem.port,
+                                chat_id_changeable=self.chat.chat_id_changeable)).send_smes()
+
     def send_sdef_mes(self):
         data = self.base_info(self.mes)
         send(self.addr, json.dumps(data))
@@ -60,4 +68,5 @@ class Smes:  # Secure message
     def send_sjoin_acc_mes(self, chat_name):
         data = self.base_info(self.mes)
         data['chat_name'] = chat_name
+        data['chat_id_changeable'] = self.chat.chat_id_changeable
         send(self.addr, json.dumps(data))

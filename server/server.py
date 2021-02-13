@@ -1,6 +1,6 @@
 import asyncio
 import socket
-from .handle import handle_requests
+from .handler import handle_requests
 
 
 class Server:

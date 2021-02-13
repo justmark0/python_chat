@@ -37,20 +37,21 @@ def acc(a):
 
 def chat_f(a):
     chat = Chat.get_or_none(name=a.split()[1])
-    if chat is not None:
-        print(f'You entered chat "{a}".')
-        while True:
-            a = input()
-            if a == "exit()":
-                break
-            if a == "":
-                continue
-            if a.split(":")[0] == 'ne':  # Not encrypted message
-                send_mes(chat, a)
-            Smes(a, chat).send_smes()
-    else:
+    if chat is None:
         print("Couldn't find this chat")
-    return 'a'
+        return
+    print(f'You entered chat "{a}".')
+    while True:
+        a = input()
+        if a == "exit()":
+            break
+        if a == "":
+            continue
+        if a.split(":")[0] == 'ne':  # Not encrypted message
+            members = Member.select().where(Member.chat == chat)
+            for mem in members:
+                send_mes((str(mem.ip), str(mem.port)), a)
+        Smes(a, chat).send_smes_to_all()
 
 
 def new_f(a):
@@ -61,8 +62,24 @@ def new_f(a):
     if name == '#new' or name == '#join' or name == '#acc' or name == 'chat':
         print('Pick another name for chat')
         return
+
     chat_id = hex(random.randint(1, 10 ** 10))
-    chat = Chat.create(name=name, chat_id=chat_id, ip=HOST, port=PORT)
+    while True:  # If Chat id is already exist
+        if Chat.get_or_none(chat_id=chat_id) is not None:
+            chat_id = hex(random.randint(1, 10 ** 10))
+        else:
+            break
+
+    chat_id_changeable = input("Will users be able to change user_id? y/n (default=n)\nThis means if users will get "
+                               "collusion in chat_id they will notify all members that they are changing chat_id. On "
+                               "other side some users can send too many of this notifications and flood, some users "
+                               "even may lost last chat_id and could not connect to chat again\n")
+    if chat_id_changeable == 'y' or chat_id_changeable == 'yes':
+        chat_id_changeable = True
+    elif chat_id_changeable == 'n' or chat_id_changeable == 'no' or chat_id_changeable == '':
+        chat_id_changeable = False
+
+    chat = Chat.create(name=name, chat_id=chat_id, ip=HOST, port=PORT, chat_id_changeable=chat_id_changeable)
     Member(chat=chat, ip=HOST, port=PORT, name=my_default_name, is_admin=True).save()
     print(f"You have created the chat. Other users can join by chat_id:{chat_id}")
 
@@ -89,12 +106,12 @@ def client_start():
 
     while True:
         print(
-            'Main menu.\nWrite: "chat *name of chat*" to enter to the existing one. \n You can create new one by typing '
-            '"#new". Or you can join by typing "#join"To exit from chat type: "exit()". To send message without encryption write with '
-            'message: "ne:*message*"\nList of available chats:')
+            'Main menu.\nWrite: "chat *name of chat*" to enter to the existing one. \n You can create new one by '
+            'typing "#new". Or you can join by typing "#join"To exit from chat type: "exit()". To send message without '
+            'encryption write with message: "ne:*message*"\nList of available chats:')
         chats = Chat.select()
         for c in chats:
-            print(f"Name:{c.name}; ip:{c.ip}; port:{c.port}; chat_id{c.chat_id};")
+            print(f"Name:{c.name}; ip:{c.ip}; port:{c.port}; chat_id:{c.chat_id};")
 
         a = input()
         # a = 'chat 1'  # for testing
