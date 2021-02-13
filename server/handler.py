@@ -12,7 +12,7 @@ def verify_fields(fields: list, data: dict, addr):  # returns true if everything
     return True
 
 
-def get_content_of_smes(data):
+def get_content_of_smes(data: dict):
     '''
     :param data: dict
     :return: message:str, is_verified: bool
@@ -70,8 +70,10 @@ def check_chat_id_IETS(chat_id):  # Check chat_id if exists then suggest (new on
 
 
 async def handle_requests(message, addr):
+    print(f"DEBUG: {message}")
     try:
         data = json.loads(message)
+        mess, is_verified = get_content_of_smes(data)
     except json.decoder.JSONDecodeError:
         send(addr, "Error: could't parse json")
         print(f"[date] Error: could't parse json from {addr}. ")  # TODO logging
@@ -105,11 +107,11 @@ async def handle_requests(message, addr):
         else:
             print(f"[date] Error: received message with wrong sign. from: {addr}; name:{data['name']}")  # TODO logging
 
-    elif data['error']:
+    elif data['type'] == 'error':
         if 'data' in data.keys():
             print(data['data'])
 
-    elif data['sjoin']:
+    elif data['type'] == 'sjoin':
         if not verify_fields(['name', 'chat_id', 'data', 'sign'], data, addr):
             return
         mess, is_verified = get_content_of_smes(data)
@@ -126,7 +128,7 @@ async def handle_requests(message, addr):
             print(f'{data["name"]} {addr} wants to join in chat {chat.name}. Type "#acc {data["name"]} {chat.chat_id} '
                   f'{ip} {port}" to accept join request')
 
-    elif data['join_acc']:
+    elif data['type'] == 'join_acc':
         if not verify_fields(['name', 'chat_id', 'data', 'sign', 'chat_name', 'chat_id_changeable'], data, addr):
             return
         mess, is_verified = get_content_of_smes(data)
@@ -174,5 +176,24 @@ async def handle_requests(message, addr):
             chat.chat_id = data['new']  # User accepted new chat id
         else:
             chat.chat_id = nchat  # User had collision and made new chat id
+
+    elif data['type'] == 'add_admin':
+        print(data)
+        if not verify_fields(['data', 'chat_id', 'sign', 'name'], data, addr):
+            return
+        if not is_member(addr, data):
+            print(f"Error. You received message from {data['name']} who is not member of chat_id {data['chat_id']} ")
+            return
+        chat = Chat.get_or_none(chat_id=data['old'])
+        if chat is None:
+            send_error(addr, "Error. new_chat_id request. I am not member of chat")
+            return
+        mes = json.loads(mess)
+        mem = Member.get_or_none(ip=mes['ip'], port=mes['port'], name=mes['name'])
+        if mem is None:
+            send_error(addr, f"Error. requested member not is not member of this chat")
+            return
+        mem.is_admin = True
+        mem.save()
 
 # TODO if rsa key changed request new one

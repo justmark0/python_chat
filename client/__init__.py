@@ -101,6 +101,41 @@ def join_f(a):
              type='sjoin').send_sdef_mes()
 
 
+def add_admin_f():
+    chat_name = input("Write chat name where to add admin\n")
+    chat = Chat.get_or_none(name=chat_name)
+    print(chat)
+    print(chat.chat_id)
+    if chat is None:
+        print('No chat with such name')
+        return
+    me = Member.get_or_none(chat=chat, ip=HOST)
+    if me is None:
+        print('You are not member of this chat')
+        return
+    members = Member.select().where(Member.chat==chat)
+    print('List of available members to which you can assign admin role')
+    list_of_members = []
+    for mem in members:
+        print(mem.name, mem)
+        #if mem.ip == HOST or mem.is_admin is True or mem.approved is False:
+        #    continue
+        list_of_members.append(mem)
+        print(f'#{len(list_of_members)} {mem.name} {mem.ip} {mem.port}')
+    num = input('Write number of user that you eant to make admin. or "exit()" to cancel\n')
+    if num == 'exit()':
+        return
+    if not num.isnumeric():
+        print('You should write number')
+        return
+    print(int(num) - 1)
+    if int(num) > 0 or int(num) <= len(list_of_members):
+        memb = list_of_members[int(num) - 1]
+        mes = {"ip": memb.ip, "port": memb.port, "name": memb.name}
+        Smes(json.dumps(mes), Chat(name=chat.name, chat_id=chat.chat_id, ip=memb.ip, port=memb.port),
+             type='add_admin').send_smes_to_all()
+
+
 def client_start():
     Chat.get_or_create(name='1', chat_id='randomsymbols1', ip=HOST, port=PORT)  # for testing
 
@@ -114,7 +149,8 @@ def client_start():
             print(f"Name:{c.name}; ip:{c.ip}; port:{c.port}; chat_id:{c.chat_id};")
 
         a = input()
-        # a = 'chat 1'  # for testing
+        if a == '':
+            continue
         if a.split()[0] == "chat":
             chat_f(a)
         elif a.split()[0] == '#new':
@@ -124,6 +160,8 @@ def client_start():
             join_f(a)
         elif a.split()[0] == '#acc':
             acc(a)
+        elif a.split()[0] == '#add_admin':
+            add_admin_f()
         else:
             print("Couldn't understand your command")
 

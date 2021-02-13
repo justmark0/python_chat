@@ -54,12 +54,12 @@ class Smes:  # Secure message
             send(self.addr, json.dumps(data))
 
     def send_smes_to_all(self):
-        members = Member.select().where(Member.chat == self.chat)
+        members = Member.select().where(Member.chat == Chat.get(chat_id=self.chat.chat_id))
         for mem in members:
-            # if mem.ip == '0.0.0.0':
+            # if mem.ip == '0.0.0.0':  # TODO uncomment it
             #     continue
             Smes(self.mes, Chat(name=self.chat.name, chat_id=self.chat.chat_id, ip=mem.ip, port=mem.port,
-                                chat_id_changeable=self.chat.chat_id_changeable)).send_smes()
+                                chat_id_changeable=self.chat.chat_id_changeable), type=self.type).send_smes()
 
     def send_sdef_mes(self):
         data = self.base_info(self.mes)
