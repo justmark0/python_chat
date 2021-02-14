@@ -1,6 +1,7 @@
 import asyncio
 import socket
 from .handler import handle_requests
+from _thread import *
 
 
 class Server:
@@ -20,9 +21,8 @@ class Server:
         while True:
             conn, address = self.socket.accept()
             data = conn.recv(4096).decode('utf-8')
+            conn.close()
             if data == "":
                 continue
             else:
-                task1 = asyncio.create_task(handle_requests(data, address))
-                await task1  # TODO make it real async or just call handler
-
+                start_new_thread(handle_requests, (data, address,))

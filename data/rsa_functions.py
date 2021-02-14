@@ -14,14 +14,14 @@ def get_my_rsa():
 
 def get_rsa_key(addr):
     ip, port = addr
-    db_key = Key.get_or_none(ip=ip, port=port)
+    db_key = Key.get_or_none(ip=ip, port=PORT)
     if db_key is not None:
         return db_key
     for a in range(3):
         send(addr, '{"type": "get_pub_key"}')
         for i in range(4):
             time.sleep(0.05)
-            db_key = Key.get_or_none(ip=ip, port=port)
+            db_key = Key.get_or_none(ip=ip, port=PORT)
             if db_key is not None:
                 return db_key
     raise Exception("Couldn't get rsa pub_key. Probably served isn't responding")

@@ -21,7 +21,7 @@ def chunk_mes_and_enc(mes_l, host_key_pub):
     data_lst = []
     for i in range(len(chunks)):
         data_lst.append((rsa.encrypt(chunks[i].encode('utf-8'), host_key_pub)).hex())
-        return data_lst
+    return data_lst
 
 
 class Smes:  # Secure message
@@ -32,7 +32,7 @@ class Smes:  # Secure message
         self.type = type
         self.addr = (chat.ip, chat.port)
 
-    def verification_and_hostpub(self):
+    def set_sign(self):
         host_key = get_rsa_key(self.addr)
         host_key_pub = get_rsa_pub_from_str(host_key.pub_key)
         my_priv = get_rsa_priv_from_str(str(get_my_rsa().priv_key))
@@ -41,7 +41,7 @@ class Smes:  # Secure message
         return signature, host_key_pub
 
     def base_info(self, mes_l):
-        signature, host_key_pub = self.verification_and_hostpub()
+        signature, host_key_pub = self.set_sign()
         data = {"type": self.type, 'sign': signature, 'data': chunk_mes_and_enc(mes_l, host_key_pub),
                 'name': my_default_name}
         return data
@@ -68,6 +68,7 @@ class Smes:  # Secure message
 
     def send_sjoin_acc_mes(self, chat_name):
         data = self.base_info(self.mes)
+        data['chat_id'] = self.chat.chat_id
         data['chat_name'] = chat_name
         data['chat_id_changeable'] = self.chat.chat_id_changeable
         send(self.addr, json.dumps(data))

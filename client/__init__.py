@@ -4,20 +4,14 @@ import re
 
 
 def acc(a):
-    if len(a.split()) != 5:
-        print('Try again. Pattern is following: "#acc *name* *chat_id* *ip* *port*"')
+    if len(a.split()) != 4:
+        print('Try again. Pattern is following: "#acc *name* *chat_id* *ip*"')
         return
     ip = a.split()[3]
     if not re.fullmatch(r'^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$', ip):
         print("Wrong ip. Exapmles: 172.0.0.1 or 200.200.200.200")
         return
-    port = a.split()[3]
-    if port == 'y' or port == "":
-        port = 4702
-    if not re.fullmatch(r'[0-9]{1,5}', port):
-        print("Wrong port. Exapmle: 4702")
-        return
-    chat = Chat.get_or_none(name=a.split()[1])
+    chat = Chat.get_or_none(chat_id=a.split()[2])
     if chat is None:
         print(f"No chat with chat_id {a.split()[2]}")
         return
@@ -26,15 +20,21 @@ def acc(a):
         if me.is_admin is False:
             print("I cannot accept users since I am not admin")
             return
-    members = Member.select().where(Member.chat_id == a.split()[2])
+    members = Member.select().where(Member.chat_id == chat)
     member_l = []
     for mem in members:
+        if mem.ip == a.split()[3]:
+            continue
         if mem.approved is True:
             member_l.append({"ip": mem.ip, "port": mem.port, "name": mem.name, "is_admin": mem.is_admin})
-    Smes(json.dumps(member_l), Chat(name=a.split()[1], chat_id=a.split()[2], ip=ip, port=port),
+    Smes(json.dumps(member_l), Chat(name=a.split()[1], chat_id=a.split()[2], ip=ip, port=PORT),
          type='join_acc').send_sjoin_acc_mes(chat_name=chat.name)
-    new_mem = {"ip": ip, "port": port, "name": a.split()[1], "is_admin": False}
-    Smes(json.dumps(new_mem), Chat(name='none', chat_id=a.split()[2], ip=ip, port=port),
+    new_mem = {"ip": ip, "port": PORT, "name": a.split()[1], "is_admin": False}
+    new, _ = Member.get_or_create(chat=chat, ip=ip, name=a.split()[1])
+    new.approved = True
+    new.is_admin = False
+    new.save()
+    Smes(json.dumps(new_mem), Chat(name='none', chat_id=a.split()[2], ip=ip, port=PORT),
          type='new_member').send_smes_to_all()
 
 
@@ -83,7 +83,7 @@ def new_f(a):
         chat_id_changeable = False
 
     chat = Chat.create(name=name, chat_id=chat_id, ip=HOST, port=PORT, chat_id_changeable=chat_id_changeable)
-    Member(chat=chat, ip=HOST, port=PORT, name=my_default_name, is_admin=True).save()
+    Member(chat=chat, ip=HOST, port=PORT, name=my_default_name, is_admin=True, approved=True).save()
     print(f"You have created the chat. Other users can join by chat_id:{chat_id}")
 
 

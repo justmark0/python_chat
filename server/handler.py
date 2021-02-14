@@ -14,7 +14,6 @@ def verify_fields(fields: list, data: dict, addr):  # returns true if everything
 
 def get_content_of_smes(data: dict, addr):
     mess = ""
-    ip, port = addr
     my = get_rsa_priv_from_str(get_my_rsa().priv_key)
     host_pub = get_rsa_pub_from_str(get_rsa_key(addr).pub_key)
     for ms in data['data']:
@@ -29,7 +28,7 @@ def add_message_to_db(data, mess, addr):
         send_error(addr, f"Error: couldn't find this chat. Chat_id {data['chat_id']}. "
                          f"You can send me invitation")
         return 'err'
-    mem = Member.get_or_none(ip=str(ip), port=str(port), name=data['name'])
+    mem = Member.get_or_none(ip=str(ip), port=str(PORT), name=data['name'])
     if mem is None:
         send_error(addr, f"Error: {data['name']} is not member of {data['chat_id']}")
         return 'err'
@@ -84,13 +83,16 @@ def checker(data, addr, check_fields=None, verify_sign=None, verify_if_chat_exis
         if not is_member(addr, data):
             print(f"Error. You received message from {data['name']} who is not member of chat_id {data['chat_id']} ")
             return False
-        return True
+    return True
 
 
-async def handle_requests(message, addr):
+def handle_requests(message, addr):
     print(f"DEBUG: {message}")
+    print(f'DEBUG:{addr}')
     try:
         data = json.loads(message)
+        ip, port = addr
+        port = PORT
     except json.decoder.JSONDecodeError:
         send(addr, "Error: could't parse json")
         print(f"[date] Error: could't parse json from {addr}. ")  # TODO logging
@@ -104,26 +106,25 @@ async def handle_requests(message, addr):
         send((ip, PORT), json.dumps(mes))
 
     elif data["type"] == 'pub_key':
-        mes: dict = json.loads(message)
-        if 'data' not in mes.keys():
+        if checker(data, addr, check_fields=['data']) is False:
             return
         ip, port = addr
         k = Key.get_or_none(ip=ip, port=PORT)
         if k is None:
-            k = Key(ip=ip, port=PORT, pub_key=mes["data"])
+            k = Key(ip=ip, port=PORT, pub_key=data["data"])
         else:
-            k.pub_key = mes["data"]
+            k.pub_key = data["data"]
         k.save()
 
     elif data['type'] == 'smes':
         if checker(data, addr, check_fields=['name', 'chat_id', 'data', 'sign'], verify_sign=True,
-                   verify_is_member=True):
+                   verify_is_member=True) is False:
             return
         mess, is_verified = get_content_of_smes(data, addr)
-        if add_message_to_db(data, mess, addr) == 'err':
-            return
         chat = Chat.get(chat_id=data['chat_id'])
         print(f"[encrypted] You received message in chat {chat.name} from {data['name']}. Content is: {mess}")
+        if add_message_to_db(data, mess, addr) == 'err':
+            return
 
     elif data['type'] == 'error':
         if 'data' in data.keys():
@@ -133,18 +134,18 @@ async def handle_requests(message, addr):
         if checker(data, addr, check_fields=['name', 'chat_id', 'data', 'sign'], verify_sign=True) is False:
             return
         mes, ver = get_content_of_smes(data, addr)
-        if checker(verify_if_chat_exists=mes) is False:
+        if checker(data, addr, verify_if_chat_exists=mes) is False:
             return
         ip, port = addr
         chat = Chat.get(chat_id=mes)
         if Member.get_or_none(ip=ip, port=port, name=data['name'], chat_id=chat) is not None:
             return
-        Member(ip=ip, port=port, name=data['name'], chat_id=chat).save()
+        Member.get_or_create(ip=ip, port=PORT, name=data['name'], chat_id=chat)
         print(f'{data["name"]} {addr} wants to join in chat {chat.name}. Type "#acc {data["name"]} {chat.chat_id} '
-              f'{ip} {port}" to accept join request')
+              f'{ip}" to accept join request')
 
     elif data['type'] == 'join_acc':
-        if checker(check_fields=['name', 'chat_id', 'data', 'sign', 'chat_name', 'chat_id_changeable'],
+        if checker(data, addr, check_fields=['name', 'chat_id', 'data', 'sign', 'chat_name', 'chat_id_changeable'],
                    verify_sign=True) is False:
             return
         mess, is_verified = get_content_of_smes(data, addr)
@@ -167,12 +168,14 @@ async def handle_requests(message, addr):
                 break
 
         mem_list = json.loads(mess)
-        chat = Chat.create(chat_id=data['chat_id'], chat_name=data['chat_name'])
+        ip, port = addr
+        print(mess)
+        chat = Chat.create(chat_id=data['chat_id'], name=chat_name, ip=ip, port=PORT)
         for member in mem_list:
             if member['ip'] == '0.0.0.0':
                 ip, port = addr
                 member['ip'] = ip
-                member['port'] = port
+                member['port'] = PORT
             Member(name=member['name'], ip=member['ip'], port=member['port'], chat_id=chat,
                    is_admin=member['is_admin'], approved=True).save()
 
@@ -199,7 +202,6 @@ async def handle_requests(message, addr):
         if mem is None:
             send_error(addr, f"Error. requested member not is not member of this chat")
             return
-        ip, port = addr
         if mem.is_admin is False:
             send_error(addr, f"Error. You are not admin to assign roles")
             return
@@ -207,6 +209,24 @@ async def handle_requests(message, addr):
         mem.save()
 
     elif data['type'] == 'new_member':
-        pass  # check is it admin
+        if checker(data, addr, check_fields=['sign', 'data', 'name', 'chat_id'], verify_sign=True) is False:
+            return
+        if checker(data, addr, verify_if_chat_exists=data['chat_id'], verify_is_member=True) is False:
+            return
+        chat = Chat.get(chat_id=data['chat_id'])
+        host = Member.get(chat=chat, name=data['name'], ip=ip)
+        mes, vr = get_content_of_smes(data, addr)
+        try:
+            mes = json.loads(mes)
+        except json.decoder.JSONDecodeError:
+            send(addr, "Error: could't parse json")
+            print(f"[date] Error: could't parse json from {addr}. ")  # TODO logging
+            return
+        if checker(mes, addr, check_fields=['ip', 'name', 'is_admin']) is False:
+            return
+        if host.is_admin is True:
+            Member(chat=chat, ip=mes['ip'], port=PORT, name=mes['name'], is_admin=False, approved=True).save()
+        else:
+            send_error(addr, 'Error. You cannot add new members since you are not admin')
 
 # TODO if rsa key changed request new one
