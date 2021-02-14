@@ -26,8 +26,3 @@ class Server:
                 task1 = asyncio.create_task(handle_requests(data, address))
                 await task1  # TODO make it real async or just call handler
 
-
-# TODO систему поддержания соединений (если один отключился, то через время его спросить, если нет ответа отсоеденить)
-# TODO registration
-# TODO decentralization
-# TODO Add logging

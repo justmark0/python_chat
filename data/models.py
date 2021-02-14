@@ -1,4 +1,4 @@
-from peewee import Model, CharField, SqliteDatabase, ForeignKeyField, BooleanField, TextField
+from peewee import Model, CharField, SqliteDatabase, ForeignKeyField, BooleanField, TextField, DateField
 
 db = SqliteDatabase("db.sqlite3")
 # TODO check length of input data
@@ -41,7 +41,7 @@ class Message(Model):
     chat = ForeignKeyField(Chat, backref='messages')
     member = ForeignKeyField(Member, backref='messages')
     content = TextField()
-    # TODO add date
+    # date = DateField()  # TODO add date
 
     class Meta:
         database = db

@@ -96,7 +96,7 @@ def join_f(a):
             return
         port = input('Write port of server. (or "y" to use default)')
         if port == 'y' or port == "":
-            port = 4702
+            port = '4702'
         if not re.fullmatch(r'[0-9]{1,5}', port):
             print("Wrong port. Exapmle: 4702")
             return

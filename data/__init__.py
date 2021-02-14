@@ -1,5 +1,6 @@
 import socket
 import time
+from .config import *
 import json
 
 
@@ -9,7 +10,7 @@ def send(addr, mess: str):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             ip, port = addr
-            sock.connect((ip, int(port)))
+            sock.connect((ip, PORT))
             sock.sendall(mess.encode('utf-8'))
             sock.close()
             time.sleep(0.05)

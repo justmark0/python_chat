@@ -7,7 +7,8 @@ from data import *
 
 def send_error(addr, message):
     message = {"type": "error", "data": message}
-    send(addr, json.dumps(message))
+    ip, port = addr
+    send((ip, PORT), json.dumps(message))
 
 
 def send_mes(chat: Chat, mes: str):  # Not encrypted message

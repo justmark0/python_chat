@@ -12,17 +12,14 @@ def verify_fields(fields: list, data: dict, addr):  # returns true if everything
     return True
 
 
-def get_content_of_smes(data: dict):
-    '''
-    :param data: dict
-    :return: message:str, is_verified: bool
-    '''
+def get_content_of_smes(data: dict, addr):
     mess = ""
+    ip, port = addr
     my = get_rsa_priv_from_str(get_my_rsa().priv_key)
-    my_pub = get_rsa_pub_from_str(get_my_rsa().pub_key)
+    host_pub = get_rsa_pub_from_str(get_rsa_key(addr).pub_key)
     for ms in data['data']:
         mess += rsa.decrypt(bytes.fromhex(ms), my).decode('utf-8')
-    return mess, rsa.verify(mess.encode('utf-8'), bytes.fromhex(data['sign']), my_pub)
+    return mess, rsa.verify(mess.encode('utf-8'), bytes.fromhex(data['sign']), host_pub)
 
 
 def add_message_to_db(data, mess, addr):
@@ -74,7 +71,7 @@ def checker(data, addr, check_fields=None, verify_sign=None, verify_if_chat_exis
         if not verify_fields(check_fields, data, addr):
             return False
     if verify_sign is True:
-        mess, is_verified = get_content_of_smes(data)
+        mess, is_verified = get_content_of_smes(data, addr)
         if not is_verified:
             print(f"[date] Error: received message with wrong sign. from: {addr}; name:{data['name']}")
             return False
@@ -103,20 +100,26 @@ async def handle_requests(message, addr):
 
     elif data["type"] == 'get_pub_key':
         mes = {"type": "pub_key", "data": str(get_my_rsa().pub_key)}
-        send(addr, json.dumps(mes))
+        ip, port = addr
+        send((ip, PORT), json.dumps(mes))
 
     elif data["type"] == 'pub_key':
         mes: dict = json.loads(message)
         if 'data' not in mes.keys():
             return
         ip, port = addr
-        Key(ip=ip, port=port, pub_key=mes["data"]).save()
+        k = Key.get_or_none(ip=ip, port=PORT)
+        if k is None:
+            k = Key(ip=ip, port=PORT, pub_key=mes["data"])
+        else:
+            k.pub_key = mes["data"]
+        k.save()
 
     elif data['type'] == 'smes':
         if checker(data, addr, check_fields=['name', 'chat_id', 'data', 'sign'], verify_sign=True,
                    verify_is_member=True):
             return
-        mess, is_verified = get_content_of_smes(data)
+        mess, is_verified = get_content_of_smes(data, addr)
         if add_message_to_db(data, mess, addr) == 'err':
             return
         chat = Chat.get(chat_id=data['chat_id'])
@@ -127,11 +130,13 @@ async def handle_requests(message, addr):
             print(data['data'])
 
     elif data['type'] == 'sjoin':
-        if checker(check_fields=['name', 'chat_id', 'data', 'sign'], verify_sign=True,
-                   verify_if_chat_exists=data['chat_id']) is False:
+        if checker(data, addr, check_fields=['name', 'chat_id', 'data', 'sign'], verify_sign=True) is False:
+            return
+        mes, ver = get_content_of_smes(data, addr)
+        if checker(verify_if_chat_exists=mes) is False:
             return
         ip, port = addr
-        chat = Chat.get(chat_id=data['chat_id'])
+        chat = Chat.get(chat_id=mes)
         if Member.get_or_none(ip=ip, port=port, name=data['name'], chat_id=chat) is not None:
             return
         Member(ip=ip, port=port, name=data['name'], chat_id=chat).save()
@@ -142,7 +147,7 @@ async def handle_requests(message, addr):
         if checker(check_fields=['name', 'chat_id', 'data', 'sign', 'chat_name', 'chat_id_changeable'],
                    verify_sign=True) is False:
             return
-        mess, is_verified = get_content_of_smes(data)
+        mess, is_verified = get_content_of_smes(data, addr)
         if data['chat_id_changeable'] == 'True':
             new_chat_id = check_chat_id_IETS(data['chat_id'])
             if new_chat_id is not None:
@@ -188,7 +193,7 @@ async def handle_requests(message, addr):
         if checker(check_fields=['data', 'chat_id', 'sign', 'name'], verify_is_member=True, verify_sign=True,
                    verify_if_chat_exists=data['chat_id']) is False:
             return
-        mess, is_verified = get_content_of_smes(data)
+        mess, is_verified = get_content_of_smes(data, addr)
         mes = json.loads(mess)
         mem = Member.get_or_none(ip=mes['ip'], port=mes['port'], name=mes['name'])
         if mem is None:
@@ -202,6 +207,6 @@ async def handle_requests(message, addr):
         mem.save()
 
     elif data['type'] == 'new_member':
-        pass # check is it admin
+        pass  # check is it admin
 
 # TODO if rsa key changed request new one

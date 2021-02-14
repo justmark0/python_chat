@@ -35,7 +35,7 @@ class Smes:  # Secure message
     def verification_and_hostpub(self):
         host_key = get_rsa_key(self.addr)
         host_key_pub = get_rsa_pub_from_str(host_key.pub_key)
-        my_priv = get_rsa_priv_from_str(host_key.priv_key)
+        my_priv = get_rsa_priv_from_str(str(get_my_rsa().priv_key))
         hash_local = rsa.compute_hash(self.mes.encode('utf-8'), 'SHA-1')
         signature = rsa.sign_hash(hash_local, my_priv, 'SHA-1').hex()
         return signature, host_key_pub
@@ -63,6 +63,7 @@ class Smes:  # Secure message
 
     def send_sdef_mes(self):
         data = self.base_info(self.mes)
+        data['chat_id'] = self.chat.chat_id
         send(self.addr, json.dumps(data))
 
     def send_sjoin_acc_mes(self, chat_name):
