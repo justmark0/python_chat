@@ -17,7 +17,7 @@ def divide_into_chunks(mes, length):
 
 
 def chunk_mes_and_enc(mes_l, host_key_pub):
-    chunks = divide_into_chunks(mes_l, rsa_max_length[str(RSA_KEY_LENGTH)])
+    chunks = divide_into_chunks(mes_l, int(rsa_max_length[str(RSA_KEY_LENGTH)] / 2))
     data_lst = []
     for i in range(len(chunks)):
         data_lst.append((rsa.encrypt(chunks[i].encode('utf-8'), host_key_pub)).hex())

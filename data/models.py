@@ -1,7 +1,7 @@
-from peewee import Model, CharField, SqliteDatabase, ForeignKeyField, BooleanField, TextField, DateField
-
+from peewee import Model, CharField, SqliteDatabase, ForeignKeyField, BooleanField, DateTimeField
+from .config import max_symbols_in_message
+import datetime
 db = SqliteDatabase("db.sqlite3")
-# TODO check length of input data
 
 
 class Key(Model):
@@ -29,7 +29,7 @@ class Member(Model):
     chat = ForeignKeyField(Chat, backref='members')
     ip = CharField(max_length=15)
     port = CharField(max_length=5)
-    name = CharField(max_length=20)
+    name = CharField(max_length=50)
     is_admin = BooleanField(default=False)
     approved = BooleanField(default=False)
 
@@ -40,9 +40,16 @@ class Member(Model):
 class Message(Model):
     chat = ForeignKeyField(Chat, backref='messages')
     member = ForeignKeyField(Member, backref='messages')
-    content = TextField()
-    # date = DateField()  # TODO add date
+    content = CharField(max_length=max_symbols_in_message)
+    date = DateTimeField(default=datetime.datetime.now)
 
     class Meta:
         database = db
 
+
+class Blocked(Model):
+    member = ForeignKeyField(Member, backref='')
+    date = DateTimeField()
+
+    class Meta:
+        database = db
