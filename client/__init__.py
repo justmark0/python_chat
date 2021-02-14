@@ -148,10 +148,12 @@ def select_chat_and_member(for_everyone, to_person):
         mmm = 'data is required'
         if for_everyone == 'block':
             while True:
-                date = input('Enter till when you want to block user. or forever to block. Format %Y-%m-%d %H:%M:%S'
+                date = input('Enter till when you want to block user. or "forever" to block. Format %Y-%m-%d %H:%M:%S'
                              'Example: 2021-02-15 00:00:01\n')
                 if date == 'exit()':
                     return
+                if date == 'forever':
+                    date = datetime.datetime(3000, 10, 10, 23, 40, 10)
                 try:
                     date = datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
                     break

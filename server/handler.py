@@ -115,7 +115,6 @@ def checker(data, addr, check_fields=None, verify_sign=None, verify_if_chat_exis
 
 def handle_requests(message, addr):
     logging.debug(f'New request. {addr} {message}')
-    print(addr, message)
     try:
         data = json.loads(message)
         ip, port = addr
