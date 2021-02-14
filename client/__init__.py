@@ -33,6 +33,9 @@ def acc(a):
             member_l.append({"ip": mem.ip, "port": mem.port, "name": mem.name, "is_admin": mem.is_admin})
     Smes(json.dumps(member_l), Chat(name=a.split()[1], chat_id=a.split()[2], ip=ip, port=port),
          type='join_acc').send_sjoin_acc_mes(chat_name=chat.name)
+    new_mem = {"ip": ip, "port": port, "name": a.split()[1], "is_admin": False}
+    Smes(json.dumps(new_mem), Chat(name='none', chat_id=a.split()[2], ip=ip, port=port),
+         type='new_member').send_smes_to_all()
 
 
 def chat_f(a):
@@ -97,15 +100,13 @@ def join_f(a):
         if not re.fullmatch(r'[0-9]{1,5}', port):
             print("Wrong port. Exapmle: 4702")
             return
-        Smes(chat_id, Chat(name=my_default_name, chat_id='None', ip=ip, port=port),
+        Smes(chat_id, Chat(name=my_default_name, chat_id=chat_id, ip=ip, port=port),
              type='sjoin').send_sdef_mes()
 
 
 def add_admin_f():
     chat_name = input("Write chat name where to add admin\n")
     chat = Chat.get_or_none(name=chat_name)
-    print(chat)
-    print(chat.chat_id)
     if chat is None:
         print('No chat with such name')
         return
@@ -113,22 +114,20 @@ def add_admin_f():
     if me is None:
         print('You are not member of this chat')
         return
-    members = Member.select().where(Member.chat==chat)
+    members = Member.select().where(Member.chat == chat)
     print('List of available members to which you can assign admin role')
     list_of_members = []
     for mem in members:
-        print(mem.name, mem)
-        #if mem.ip == HOST or mem.is_admin is True or mem.approved is False:
-        #    continue
+        if mem.ip == HOST or mem.is_admin is True or mem.approved is False:
+            continue
         list_of_members.append(mem)
         print(f'#{len(list_of_members)} {mem.name} {mem.ip} {mem.port}')
-    num = input('Write number of user that you eant to make admin. or "exit()" to cancel\n')
+    num = input('Write number of user that you want to make admin. or "exit()" to cancel\n')
     if num == 'exit()':
         return
     if not num.isnumeric():
         print('You should write number')
         return
-    print(int(num) - 1)
     if int(num) > 0 or int(num) <= len(list_of_members):
         memb = list_of_members[int(num) - 1]
         mes = {"ip": memb.ip, "port": memb.port, "name": memb.name}
@@ -165,8 +164,6 @@ def client_start():
         else:
             print("Couldn't understand your command")
 
-# TODO add new admin
-# TODO add remove admin
 # TODO ban *time*
 # TODO get history
 # TODO describe problem and solution for chat_is changes and history loses

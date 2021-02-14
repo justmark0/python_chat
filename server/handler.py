@@ -69,11 +69,31 @@ def check_chat_id_IETS(chat_id):  # Check chat_id if exists then suggest (new on
     return None
 
 
+def checker(data, addr, check_fields=None, verify_sign=None, verify_if_chat_exists=None, verify_is_member=None):
+    if check_fields is not None:
+        if not verify_fields(check_fields, data, addr):
+            return False
+    if verify_sign is True:
+        mess, is_verified = get_content_of_smes(data)
+        if not is_verified:
+            print(f"[date] Error: received message with wrong sign. from: {addr}; name:{data['name']}")
+            return False
+    if verify_if_chat_exists is not None:
+        if Chat.get_or_none(chat_id=verify_if_chat_exists) is None:
+            send_error(addr, f"Error: couldn't find this chat. Chat_id {data['chat_id']}. "
+                             f"You can send me invitation")
+            return False
+    if verify_is_member is True:
+        if not is_member(addr, data):
+            print(f"Error. You received message from {data['name']} who is not member of chat_id {data['chat_id']} ")
+            return False
+        return True
+
+
 async def handle_requests(message, addr):
     print(f"DEBUG: {message}")
     try:
         data = json.loads(message)
-        mess, is_verified = get_content_of_smes(data)
     except json.decoder.JSONDecodeError:
         send(addr, "Error: could't parse json")
         print(f"[date] Error: could't parse json from {addr}. ")  # TODO logging
@@ -93,81 +113,68 @@ async def handle_requests(message, addr):
         Key(ip=ip, port=port, pub_key=mes["data"]).save()
 
     elif data['type'] == 'smes':
-        if not verify_fields(['name', 'chat_id', 'data', 'sign'], data, addr):
+        if checker(data, addr, check_fields=['name', 'chat_id', 'data', 'sign'], verify_sign=True,
+                   verify_is_member=True):
             return
         mess, is_verified = get_content_of_smes(data)
-        if not is_member(addr, data):
-            print(f"Error. You received message from {data['name']} who is not member of chat_id {data['chat_id']} ")
+        if add_message_to_db(data, mess, addr) == 'err':
             return
-        if is_verified:
-            if add_message_to_db(data, mess, addr) == 'err':
-                return
-            chat = Chat.get(chat_id=data['chat_id'])
-            print(f"[encrypted] You received message in chat {chat.name} from {data['name']}. Content is: {mess}")
-        else:
-            print(f"[date] Error: received message with wrong sign. from: {addr}; name:{data['name']}")  # TODO logging
+        chat = Chat.get(chat_id=data['chat_id'])
+        print(f"[encrypted] You received message in chat {chat.name} from {data['name']}. Content is: {mess}")
 
     elif data['type'] == 'error':
         if 'data' in data.keys():
             print(data['data'])
 
     elif data['type'] == 'sjoin':
-        if not verify_fields(['name', 'chat_id', 'data', 'sign'], data, addr):
+        if checker(check_fields=['name', 'chat_id', 'data', 'sign'], verify_sign=True,
+                   verify_if_chat_exists=data['chat_id']) is False:
             return
-        mess, is_verified = get_content_of_smes(data)
-        if is_verified:
-            ip, port = addr
-            chat = Chat.get_or_none(chat_id=data['chat_id'])
-            if chat is None:
-                send_error(addr, f"Error: couldn't find this chat. Chat_id {data['chat_id']}. "
-                                 f"You can send me invitation")
-                return
-            if Member.get_or_none(ip=ip, port=port, name=data['name'], chat_id=chat) is not None:
-                return
-            mem = Member.create(ip=ip, port=port, name=data['name'], chat_id=chat)
-            print(f'{data["name"]} {addr} wants to join in chat {chat.name}. Type "#acc {data["name"]} {chat.chat_id} '
-                  f'{ip} {port}" to accept join request')
+        ip, port = addr
+        chat = Chat.get(chat_id=data['chat_id'])
+        if Member.get_or_none(ip=ip, port=port, name=data['name'], chat_id=chat) is not None:
+            return
+        Member(ip=ip, port=port, name=data['name'], chat_id=chat).save()
+        print(f'{data["name"]} {addr} wants to join in chat {chat.name}. Type "#acc {data["name"]} {chat.chat_id} '
+              f'{ip} {port}" to accept join request')
 
     elif data['type'] == 'join_acc':
-        if not verify_fields(['name', 'chat_id', 'data', 'sign', 'chat_name', 'chat_id_changeable'], data, addr):
+        if checker(check_fields=['name', 'chat_id', 'data', 'sign', 'chat_name', 'chat_id_changeable'],
+                   verify_sign=True) is False:
             return
         mess, is_verified = get_content_of_smes(data)
-        if is_verified:
-            if data['chat_id_changeable'] == 'True':
-                new_chat_id = check_chat_id_IETS(data['chat_id'])
-                if new_chat_id is not None:
-                    data['chat_id'] = new_chat_id
+        if data['chat_id_changeable'] == 'True':
+            new_chat_id = check_chat_id_IETS(data['chat_id'])
+            if new_chat_id is not None:
+                data['chat_id'] = new_chat_id
+        else:
+            chat_local = Chat.get_or_none(data['chat_id'])
+            if chat_local is not None:
+                print(f'Error. You cannot join new chat since you have such chat id. You can delete chat '
+                      f'{chat_local.name} and try to join again')
+                return
+
+        chat_name = data['chat_name']  # If client has such chat name
+        while True:
+            if Chat.get_or_none(name=chat_name) is not None:
+                chat_name = chat_name + str(hex(random.randint(1, 10 ** 7)))
             else:
-                chat_local = Chat.get_or_none(data['chat_id'])
-                if chat_local is not None:
-                    print(f'Error. You cannot join new chat since you have such chat id. You can delete chat '
-                          f'{chat_local.name} and try to join again')
-                    return
+                break
 
-            chat_name = data['chat_name']  # If client has such chat name
-            while True:
-                if Chat.get_or_none(name=chat_name) is not None:
-                    chat_name = chat_name + str(hex(random.randint(1, 10 ** 7)))
-                else:
-                    break
-
-            mem_list = json.loads(mess)
-            chat = Chat.create(chat_id=data['chat_id'], chat_name=data['chat_name'])
-            for member in mem_list:
-                if member['ip'] == '0.0.0.0':
-                    ip, port = addr
-                    member['ip'] = ip
-                    member['port'] = port
-                Member(name=member['name'], ip=member['ip'], port=member['port'], chat_id=chat,
-                       is_admin=member['is_admin'], approved=True).save()
+        mem_list = json.loads(mess)
+        chat = Chat.create(chat_id=data['chat_id'], chat_name=data['chat_name'])
+        for member in mem_list:
+            if member['ip'] == '0.0.0.0':
+                ip, port = addr
+                member['ip'] = ip
+                member['port'] = port
+            Member(name=member['name'], ip=member['ip'], port=member['port'], chat_id=chat,
+                   is_admin=member['is_admin'], approved=True).save()
 
     elif data['type'] == 'new_chat_id':
-        if not verify_fields(['old', 'new'], data, addr):
+        if checker(check_fields=['old', 'new'], verify_if_chat_exists=data['old']) is False:
             return
-        chat = Chat.get_or_none(chat_id=data['old'])
-        if chat is None:
-            send_error(addr, "Error. new_chat_id request. I am not member of chat")
-            return
+        chat = Chat.get(chat_id=data['old'])
         if chat.chat_id_changeable is False:
             send_error(addr, "Error. Chat_id is not changeable")
         chat_id = data['new']
@@ -178,22 +185,23 @@ async def handle_requests(message, addr):
             chat.chat_id = nchat  # User had collision and made new chat id
 
     elif data['type'] == 'add_admin':
-        print(data)
-        if not verify_fields(['data', 'chat_id', 'sign', 'name'], data, addr):
+        if checker(check_fields=['data', 'chat_id', 'sign', 'name'], verify_is_member=True, verify_sign=True,
+                   verify_if_chat_exists=data['chat_id']) is False:
             return
-        if not is_member(addr, data):
-            print(f"Error. You received message from {data['name']} who is not member of chat_id {data['chat_id']} ")
-            return
-        chat = Chat.get_or_none(chat_id=data['old'])
-        if chat is None:
-            send_error(addr, "Error. new_chat_id request. I am not member of chat")
-            return
+        mess, is_verified = get_content_of_smes(data)
         mes = json.loads(mess)
         mem = Member.get_or_none(ip=mes['ip'], port=mes['port'], name=mes['name'])
         if mem is None:
             send_error(addr, f"Error. requested member not is not member of this chat")
             return
+        ip, port = addr
+        if mem.is_admin is False:
+            send_error(addr, f"Error. You are not admin to assign roles")
+            return
         mem.is_admin = True
         mem.save()
+
+    elif data['type'] == 'new_member':
+        pass # check is it admin
 
 # TODO if rsa key changed request new one

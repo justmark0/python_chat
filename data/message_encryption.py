@@ -56,8 +56,8 @@ class Smes:  # Secure message
     def send_smes_to_all(self):
         members = Member.select().where(Member.chat == Chat.get(chat_id=self.chat.chat_id))
         for mem in members:
-            # if mem.ip == '0.0.0.0':  # TODO uncomment it
-            #     continue
+            if mem.ip == '0.0.0.0':  # comment if want to DEBUG
+                continue
             Smes(self.mes, Chat(name=self.chat.name, chat_id=self.chat.chat_id, ip=mem.ip, port=mem.port,
                                 chat_id_changeable=self.chat.chat_id_changeable), type=self.type).send_smes()
 
