@@ -58,6 +58,7 @@ def chat_f(a):
             continue
         if is_blocked(('0.0.0.0', PORT), {'chat_id': chat.chat_id, "name": my_default_name}) is True:
             print('I cannot send messages to this chat. You can see #my_blocks')
+            return
         if a.split(":")[0] == 'ne':  # Not encrypted message
             members = Member.select().where(Member.chat == chat)
             for mem in members:
@@ -163,6 +164,12 @@ def select_chat_and_member(for_everyone, to_person):
                         continue
             mmm = str(date)
             mes['data'] = str(date)
+            blk = Blocked.get_or_none(member=memb)
+            if blk is None:
+                Blocked(member=memb, date=date).save()
+                return
+            blk.date = date
+            blk.save()
         if for_everyone == 'add_admin':
             memb.is_admin = True
             memb.save()

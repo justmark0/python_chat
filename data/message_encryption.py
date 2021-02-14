@@ -58,6 +58,10 @@ class Smes:  # Secure message
         for mem in members:
             if mem.ip == '0.0.0.0':  # comment if want to DEBUG
                 continue
+            blk = Blocked.get_or_none(member=mem)
+            if blk is not None:
+                if datetime.datetime.now() <= blk.date:
+                    continue
             Smes(self.mes, Chat(name=self.chat.name, chat_id=self.chat.chat_id, ip=mem.ip, port=mem.port,
                                 chat_id_changeable=self.chat.chat_id_changeable), type=self.type).send_smes()
 
